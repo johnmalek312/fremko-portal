@@ -20,7 +20,7 @@ If you find Fremko Portal useful, please consider supporting the project by givi
 
 ### ⚙️ Setup
 1. Install the app on your Android device.
-2. Enable the accessibility service in Android Settings → Accessibility → Droidrun Portal.
+2. Enable the accessibility service in Android Settings → Accessibility → Fremko Portal.
 3. Grant overlay permission when prompted.
 4. Grant screen capture permssion when prompted.
 5. Click on the wrench icon and type in your server WebSocket URL, usually it is `ws://your_local_ip:port` e.g. `ws://192.168.0.9:10001`. If you are using an emulator it is `ws://10.0.2.2:10001`.
