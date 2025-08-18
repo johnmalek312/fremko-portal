@@ -61,7 +61,7 @@ jobs:
       - name: Rename APK with version
         run: |
           TAG_NAME=${GITHUB_REF#refs/tags/}
-          mv artifacts/app-debug.apk "artifacts/droidrun-portal-${TAG_NAME}.apk"
+          mv artifacts/app-debug.apk "artifacts/fremko-portal-${TAG_NAME}.apk"
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
