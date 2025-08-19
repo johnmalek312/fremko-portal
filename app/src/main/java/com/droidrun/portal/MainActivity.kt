@@ -251,7 +251,7 @@ class MainActivity : AppCompatActivity() {
 
                     try { continuousCapture?.stop() } catch (_: Exception) {}
                     continuousCapture = mediaProjection?.let { mp ->
-                        ContinuousScreenCapture(this, mp, 7).also { it.start() }
+                        ContinuousScreenCapture(applicationContext, mp, 7).also { it.start() }
                     }
                     appendLog("▶ Continuous screen capture started (~7 fps)")
                 } catch (e: Exception) {
@@ -267,7 +267,7 @@ class MainActivity : AppCompatActivity() {
         if (sharedMediaProjection == null) {
             runOnUiThread {
                 try {
-                    try { startForegroundService(Intent(this, ScreenCaptureService::class.java)) } catch (_: Exception) {}
+                    try { startForegroundService(Intent(applicationContext, ScreenCaptureService::class.java)) } catch (_: Exception) {}
                     val intent = mediaProjectionManager?.createScreenCaptureIntent()
                     if (intent != null && !isRequestingScreenCapture) {
                         isRequestingScreenCapture = true
@@ -306,7 +306,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             if (continuousCapture == null && mediaProjection != null) {
-                continuousCapture = ContinuousScreenCapture(this, mediaProjection!!, 7).also { it.start() }
+                continuousCapture = ContinuousScreenCapture(applicationContext, mediaProjection!!, 7).also { it.start() }
                 appendLog("▶ Continuous screen capture started (~7 fps)")
             }
         }
@@ -363,9 +363,9 @@ class MainActivity : AppCompatActivity() {
         val shouldRun = wantControlConnection || wantVideoStream || (mediaProjection != null)
         try {
             if (shouldRun) {
-                startForegroundService(Intent(this, ScreenCaptureService::class.java))
+                startForegroundService(Intent(applicationContext, ScreenCaptureService::class.java))
             } else {
-                stopService(Intent(this, ScreenCaptureService::class.java))
+                stopService(Intent(applicationContext, ScreenCaptureService::class.java))
             }
         } catch (_: Exception) {}
     }
@@ -1226,7 +1226,7 @@ class MainActivity : AppCompatActivity() {
             if (newQuality != null) jpegQuality = newQuality
             try { continuousCapture?.stop() } catch (_: Exception) {}
             mediaProjection?.let { mp ->
-                continuousCapture = ContinuousScreenCapture(this, mp, jpegFps).also { it.start() }
+                continuousCapture = ContinuousScreenCapture(applicationContext, mp, jpegFps).also { it.start() }
             }
             startOrRestartJpegStreamingJob()
             val data = JSONObject().apply { put("fps", jpegFps); put("quality", jpegQuality) }
@@ -1295,7 +1295,7 @@ class MainActivity : AppCompatActivity() {
                 // Also align the continuous capture helper for screenshots
                 try { continuousCapture?.stop() } catch (_: Exception) {}
                 continuousCapture = mediaProjection?.let { mp ->
-                    ContinuousScreenCapture(this, mp, newFps).also { it.start() }
+                    ContinuousScreenCapture(applicationContext, mp, newFps).also { it.start() }
                 }
                 activeStreamFps = newFps
                 changed = true
@@ -1495,7 +1495,7 @@ class MainActivity : AppCompatActivity() {
         // Ensure ContinuousScreenCapture at requested fps
         try { continuousCapture?.stop() } catch (_: Exception) {}
         mediaProjection?.let { mp ->
-            continuousCapture = ContinuousScreenCapture(this, mp, jpegFps).also { it.start() }
+            continuousCapture = ContinuousScreenCapture(applicationContext, mp, jpegFps).also { it.start() }
         }
 
         if (!isVideoConnected || videoSocket == null) {
@@ -1538,7 +1538,7 @@ class MainActivity : AppCompatActivity() {
         val mp = mediaProjection
         if (mp != null && !userStoppedCapture && continuousCapture == null) {
             try {
-                continuousCapture = ContinuousScreenCapture(this, mp, 7).also { it.start() }
+                continuousCapture = ContinuousScreenCapture(applicationContext, mp, 7).also { it.start() }
                 appendLog("▶ Continuous screen capture resumed (~7 fps)")
             } catch (_: Exception) {}
         }
@@ -1830,7 +1830,7 @@ class MainActivity : AppCompatActivity() {
         mediaProjection = null
         sharedMediaProjection = null
 
-        try { startForegroundService(Intent(this, ScreenCaptureService::class.java)) } catch (_: Exception) {}
+        try { startForegroundService(Intent(applicationContext, ScreenCaptureService::class.java)) } catch (_: Exception) {}
         val intent = mediaProjectionManager?.createScreenCaptureIntent()
         if (intent != null && !isRequestingScreenCapture) {
             isRequestingScreenCapture = true
@@ -1860,7 +1860,7 @@ class MainActivity : AppCompatActivity() {
         mediaProjection = null
         sharedMediaProjection = null
         // Optionally stop the foreground service notification
-        try { stopService(Intent(this, ScreenCaptureService::class.java)) } catch (_: Exception) {}
+        try { stopService(Intent(applicationContext, ScreenCaptureService::class.java)) } catch (_: Exception) {}
         appendLog("✔ Screen capture stopped. Use 'Re-enable Screen Capture' to resume.")
     }
 } 

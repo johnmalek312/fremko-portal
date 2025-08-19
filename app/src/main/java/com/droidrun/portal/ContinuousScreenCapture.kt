@@ -1,6 +1,7 @@
 package com.droidrun.portal
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
@@ -41,6 +42,13 @@ class ContinuousScreenCapture(
     fun start() {
         if (isRunning) return
         isRunning = true
+
+        // Ensure the foreground service is running before creating the virtual display
+        // This is required on Android 14+ to keep MediaProjection alive in background
+        try {
+            val appCtx = context.applicationContext
+            appCtx.startForegroundService(Intent(appCtx, ScreenCaptureService::class.java))
+        } catch (_: Throwable) {}
 
         val metrics: DisplayMetrics = context.resources.displayMetrics
         val width = metrics.widthPixels
