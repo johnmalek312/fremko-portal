@@ -1152,15 +1152,16 @@ class MainActivity : AppCompatActivity() {
                 // Defer sending result; user must grant permission and retry
                 return Triple("deferred", "", null)
             } else {
-                val tFetchStart = SystemClock.elapsedRealtime()
-                val bmp = continuousCapture?.getLastFrame()
-                val fetchElapsed = SystemClock.elapsedRealtime() - tFetchStart
-                appendLog("frame fetch time: ${fetchElapsed} ms")
+                // Capture a fresh frame immediately and process it asynchronously
+                val currentId = id
+                ioScope.launch {
+                    val tFetchStart = SystemClock.elapsedRealtime()
+                    val bmp = continuousCapture?.captureImmediateFrame(timeoutMs = 2000)
+                    val fetchElapsed = SystemClock.elapsedRealtime() - tFetchStart
+                    appendLog("fresh frame capture time: ${fetchElapsed} ms")
 
-                if (bmp != null) {
-                    val rawSize = try { bmp.byteCount } catch (_: Exception) { -1 }
-                    val currentId = id
-                    ioScope.launch {
+                    if (bmp != null) {
+                        val rawSize = try { bmp.byteCount } catch (_: Exception) { -1 }
                         val tCompStart = SystemClock.elapsedRealtime()
                         val bytes = encodeFastJpeg(bmp, maxWidth = 1080, quality = 75, convertToRGB565 = true)
                         val compElapsed = SystemClock.elapsedRealtime() - tCompStart
@@ -1178,11 +1179,20 @@ class MainActivity : AppCompatActivity() {
                         appendLog("→ action_result: ${sanitizeForLog(json)}")
                         webSocket?.send(json)
                         try { webSocket?.send(ByteString.of(*bytes)) } catch (_: Exception) {}
+                    } else {
+                        // Send error result if frame capture failed
+                        val result = JSONObject().apply {
+                            put("type", "action_result")
+                            put("id", currentId)
+                            put("status", "error")
+                            put("info", "failed to capture fresh frame")
+                        }
+                        val json = result.toString()
+                        appendLog("→ action_result (error): ${sanitizeForLog(json)}")
+                        webSocket?.send(json)
                     }
-                    return Triple("async", "", null)
-                } else {
-                    return Triple("error", "no frame yet", null)
                 }
+                return Triple("async", "", null)
             }
         } else {
             return Triple("error", "Android API < 21 not supported", null)
@@ -1191,7 +1201,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleStartJpegStream(args: JSONObject): Triple<String, String, Any?> {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            if (mediaProjection == null) {
+            // Check if we have either a valid mediaProjection or continuous capture is running
+            if (mediaProjection == null && (continuousCapture?.isCurrentlyRunning() != true)) {
                 return Triple("error", "screen_capture_not_ready", null)
             } else {
                 val fps = args.optInt("fps", 7).coerceIn(1, 30)
@@ -1493,9 +1504,12 @@ class MainActivity : AppCompatActivity() {
         maintainForegroundService()
 
         // Ensure ContinuousScreenCapture at requested fps
-        try { continuousCapture?.stop() } catch (_: Exception) {}
-        mediaProjection?.let { mp ->
-            continuousCapture = ContinuousScreenCapture(applicationContext, mp, jpegFps).also { it.start() }
+        // Only restart if not running or if we need to change fps
+        if (continuousCapture?.isCurrentlyRunning() != true) {
+            try { continuousCapture?.stop() } catch (_: Exception) {}
+            mediaProjection?.let { mp ->
+                continuousCapture = ContinuousScreenCapture(applicationContext, mp, jpegFps).also { it.start() }
+            }
         }
 
         if (!isVideoConnected || videoSocket == null) {

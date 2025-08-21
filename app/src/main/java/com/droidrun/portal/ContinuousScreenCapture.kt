@@ -38,6 +38,9 @@ class ContinuousScreenCapture(
 
     @Volatile private var lastProcessedMs: Long = 0L
 
+    /** Returns true if continuous capture is currently running */
+    fun isCurrentlyRunning(): Boolean = isRunning
+
     /** Starts continuous capture. No-op if already running. */
     fun start() {
         if (isRunning) return
@@ -164,6 +167,44 @@ class ContinuousScreenCapture(
                 null
             }
         }
+    }
+
+    /** 
+     * Captures a fresh frame immediately, bypassing the FPS throttling.
+     * Returns a copy of the newly captured frame, or null if capture fails.
+     * This method blocks until a fresh frame is available or timeout occurs.
+     */
+    fun captureImmediateFrame(timeoutMs: Long = 2000): Bitmap? {
+        if (!isRunning) return null
+        
+        val startTime = SystemClock.elapsedRealtime()
+        val originalLastProcessed = lastProcessedMs
+        
+        // Reset throttling to force immediate capture of next frame
+        lastProcessedMs = 0
+        
+        // Wait for a new frame to be captured
+        var attempts = 0
+        val maxAttempts = (timeoutMs / 50).toInt().coerceAtLeast(1)
+        
+        while (attempts < maxAttempts) {
+            Thread.sleep(50) // Wait 50ms between checks
+            
+            // Check if a new frame was captured after we reset the timestamp
+            if (lastProcessedMs > originalLastProcessed) {
+                return getLastFrame()
+            }
+            
+            attempts++
+            
+            // Check for timeout
+            if (SystemClock.elapsedRealtime() - startTime >= timeoutMs) {
+                break
+            }
+        }
+        
+        // Timeout occurred, return the last available frame if any
+        return getLastFrame()
     }
 
     /** Stops capture and frees resources. Safe to call multiple times. */
