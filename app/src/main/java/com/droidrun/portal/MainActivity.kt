@@ -917,74 +917,68 @@ class MainActivity : AppCompatActivity() {
     private fun handleInputText(args: JSONObject): Triple<String, String, Any?> {
         val text = args.optString("text", "")
         val append = args.optBoolean("append", false)
-        if (text.isNotBlank()) {
-            // Try DroidrunKeyboardIME first
-            val keyboard = DroidrunKeyboardIME.getInstance()
-            var ok = false
-            var method = ""
-            
-            if (keyboard != null && keyboard.hasInputConnection()) {
-                try {
-                    val finalText = if (append) {
-                        // For append mode with keyboard IME, we need to get current text first
-                        // This is more complex with IME, so we'll fall back to accessibility service for append
-                        null
-                    } else {
-                        text
-                    }
-                    
-                    if (finalText != null) {
-                        ok = keyboard.inputText(finalText)
-                        method = "droidrun_keyboard"
-                    }
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Error using DroidrunKeyboardIME", e)
-                    ok = false
-                }
-            }
-            
-            // Fall back to accessibility service if keyboard method failed or append mode
-            if (!ok || append) {
-                val svc = DroidrunAccessibilityService.getInstance()
-                ok = if (svc != null) {
-                    val focused = svc.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-                        ?: svc.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
-                    if (focused != null) {
-                        try {
-                            val finalText = if (append) {
-                                val existingText = focused.text?.toString() ?: ""
-                                existingText + text
-                            } else text
-                            val bundle = android.os.Bundle().apply {
-                                putCharSequence(
-                                    AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
-                                    finalText
-                                )
-                            }
-                            val res = focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, bundle)
-                            focused.recycle()
-                            if (res && svc.isKeyboardVisible()) {
-                                svc.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
-                            }
-                            res
-                        } catch (e: Exception) {
-                            try { focused.recycle() } catch (_: Exception) {}
-                            false
-                        }
-                    } else false
-                } else false
-                
-                if (method.isEmpty()) {
-                    method = "accessibility_service"
-                }
-            }
-            
-            val status = if (ok) "ok" else "error"
-            val info = if (ok) "text input delivered via $method" else "text input failed"
-            return Triple(status, info, null)
-        } else {
+    
+        if (text.isBlank()) {
             return Triple("error", "Missing text", null)
         }
+    
+        // Try DroidrunKeyboardIME first
+        val keyboard = DroidrunKeyboardIME.getInstance()
+        var ok = false
+        var method = ""
+    
+        if (keyboard != null && keyboard.hasInputConnection()) {
+            try {
+                ok = keyboard.inputText(text, append)
+                method = "droidrun_keyboard"
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error using DroidrunKeyboardIME", e)
+                ok = false
+            }
+        }
+    
+        // Fallback: Accessibility service if keyboard method not available
+        if (!ok) {
+            val svc = DroidrunAccessibilityService.getInstance()
+            ok = if (svc != null) {
+                val focused = svc.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+                    ?: svc.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
+                if (focused != null) {
+                    try {
+                        val finalText = if (append) {
+                            (focused.text?.toString() ?: "") + text
+                        } else {
+                            text // accessibility version won't always nuke, but replaces normally
+                        }
+                        val bundle = android.os.Bundle().apply {
+                            putCharSequence(
+                                AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                                finalText
+                            )
+                        }
+                        val res = focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, bundle)
+                        focused.recycle()
+                        if (res && svc.isKeyboardVisible()) {
+                            svc.performGlobalAction(
+                                android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK
+                            )
+                        }
+                        res
+                    } catch (e: Exception) {
+                        try { focused.recycle() } catch (_: Exception) {}
+                        false
+                    }
+                } else false
+            } else false
+    
+            if (method.isEmpty()) {
+                method = "accessibility_service"
+            }
+        }
+    
+        val status = if (ok) "ok" else "error"
+        val info = if (ok) "text input delivered via $method" else "text input failed"
+        return Triple(status, info, null)
     }
 
     private fun handlePressKey(args: JSONObject): Triple<String, String, Any?> {
